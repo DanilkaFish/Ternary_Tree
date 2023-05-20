@@ -20,8 +20,8 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
     
     def __init__(self, es_problem,trans = None,enum_list = None, tt = None):
         """The Teranry Tree fermion-to-qubit mapping. Standart mapping is alpha_beta_tree"""
-        if tt == None:
-            owntt = True
+#         if tt == None:
+#             owntt = True
         self.tt = tt
         self.nmodes = es_problem.num_spin_orbitals 
         self.enum_list = enum_list
@@ -39,10 +39,12 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
         return int(trunc(log(2*self.nmodes + 1)/log(3) - 0.001)) + 1
 
     def pauli_table(self, nmodes):
-        pt = copy.copy(pauli_table_TT(nmodes,num_list = self.enum_list,tt = self.tt))
+        pt = copy.copy(pauli_table_TT(nmodes, num_list = self.enum_list,tt = self.tt))
+#         print(pt)
         pauli_table = [None]*self.nmodes 
         for i,t in enumerate(self.trans):
             pauli_table[t] = pt[i]
+#         print(pauli_table)
         return pauli_table
     
     @lru_cache(maxsize=32)
@@ -73,7 +75,9 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
             # The annihilation operator is given by 0.5*(X + 1j*Y)
             annihilation_op = real_part + imag_part
             times_annihilation_op.append(annihilation_op)
-        return (times_creation_op, times_annihilation_op)
+            n_qubits = len(paulis[0])
+        
+        return times_creation_op, times_annihilation_op, n_qubits
     
 #     @classmethod
     def mode_based_mapping(cls, second_q_op: SparseLabelOp, nmodes: int) -> PauliSumOp:
@@ -90,24 +94,28 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
             QiskitNatureError: If number length of pauli table does not match the number
                 of operator modes, or if the operator has unexpected label content
         """
-        times_creation_op, times_annihilation_op = cls.sparse_pauli_operators(nmodes)
-
+#         print("nmodes = ", nmodes)
+        times_creation_op, times_annihilation_op, n_qubits = cls.sparse_pauli_operators(nmodes)
+#         print("times_creation_op = ", times_creation_op, "\n", times_annihilation_op)
         # make sure ret_op_list is not empty by including a zero op
-        ret_op_list = [SparsePauliOp("I" * nmodes, coeffs=[0])]
+        # Here are differencies
+        ret_op_list = [SparsePauliOp("I" * n_qubits, coeffs=[0])]
 
         for terms, coeff in second_q_op.terms():
             # 1. Initialize an operator list with the identity scaled by the `coeff`
-            ret_op = SparsePauliOp("I" * nmodes, coeffs=np.array([coeff]))
-
+            ret_op = SparsePauliOp("I" * n_qubits, coeffs=np.array([coeff]))
+#             print("terms = ",terms)
             # Go through the label and replace the fermion operators by their qubit-equivalent, then
             # save the respective Pauli string in the pauli_str list.
             for term in terms:
+                
                 char = term[0]
                 if char == "":
                     break
                 position = int(term[1])
                 if char == "+":
                     ret_op = ret_op.compose(times_creation_op[position], front=True)
+                    
                 elif char == "-":
                     ret_op = ret_op.compose(times_annihilation_op[position], front=True)
                 # catch any disallowed labels
@@ -115,6 +123,7 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
                     raise QiskitNatureError(
                         f"FermionicOp label included '{char}'. Allowed characters: I, N, E, +, -"
                     )
+#                 print("ret_op = ", ret_op)
             ret_op_list.append(ret_op)
 
         return PauliSumOp(SparsePauliOp.sum(ret_op_list).simplify())

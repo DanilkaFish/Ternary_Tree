@@ -9,24 +9,29 @@ from .TernaryTree import TernaryTree
 #     num_list.append([2*i,2*i + 1])
 
 
-def _pauli_table_TT(nmodes, num_list = None, **kwargs):
+def _pauli_table_TT(nmodes,**kwargs):
+    #     Здесь может быть ошибка
+    num_list = kwargs.get("num_list", None)
+    print(num_list)
     tt =  kwargs.get("tt", None)
     if tt == None:
         tt = TernaryTree(nmodes,enum_list = num_list)
-
-        tt.build_alpha_beta_tree()
-    else:
-        nmodes = tt.nmodes()
         
+        tt.build_alpha_beta_tree()
+        n_qubits = nmodes
+    else:
+        n_qubits = tt.n_qubits
+        nmodes = tt.nmodes
+        num_list = [[tt.enum_list[2*i],tt.enum_list[2*i + 1]] for i in range(nmodes)] 
 #     print(tt.parent_child)
     branches = tt.branches()
-    
-#     Здесь может быть ошибка
-    num_list = kwargs.get("num_list", None)
+#     print(branches)
+
     if not num_list:
+#         print("ge")
         num_list = st_enumeration(nmodes)
     def branch_to_str(branch):
-        pauli_list = ["I"]*nmodes
+        pauli_list = ["I"]*n_qubits
         pauli_str = ""
         for el in branch:
             pauli_list[el[0]] = el[1]

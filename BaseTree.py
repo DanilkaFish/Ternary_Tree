@@ -19,7 +19,7 @@ class EnumInfo:
         return False
     
     
-    
+  
 class NodeInfo:
     """
     Type for nodes representation in parent_child dictionary 
@@ -28,7 +28,9 @@ class NodeInfo:
         if not childs:
             self.parent = parent
             self.childs = [None]*3
-            
+        else:
+            self.parent = parent
+            self.childs = childs
     def __setitem__(self, key,val):
         self.childs[key] = val 
         return val
@@ -48,46 +50,74 @@ def st_enumeration(nmodes):
     for i in range(nmodes//2):
         num_list.append([i,nmodes - i - 1])
     for i in range(nmodes + nmodes - 1, nmodes + nmodes//2 - 1, -1):
-        num_list.append([i,-i + nmodes*3 - 1])
+        num_list.append([i,- i + nmodes*3 - 1])
+#     for i in range(nmodes):
+#         num_list.append([i,2*nmodes - i - 1])
+#     for i in range(nmodes + nmodes - 1, nmodes + nmodes//2 - 1, -1):
+#         num_list.append([i,-i + nmodes*3 - 1])
+#     num_list = [2*i for i in range(nmodes//2)]
+#     num_list.append([[2*i + 1 for i in range(nmodes//2)]])
     return num_list
-
+### СЕТЕР ДЛЯ ENUM_LIST ОРГАНИЗУЙ ПОТОМ
 class BaseTree:
     """ This is class for representation ternary tree and its manipualtions"""
     def __init__(
         self,
         n_qubits: int = 0,
-        num_particles: int = None,
         parent_child: dict[int] = None,
+        num_particles: int = None,
         enum_list: list[int] = None,
+        nmodes: int = None,
         **kwargs
         ):
         """
         self.parent_child = {parent_number : NodeInfo} -- tree's structure
         self.enum_list = [int] -- branches numeration
         """
-        self.n_qubits = n_qubits
-        self.max_tree = self.build_max_tree()
-        self.num_qubit_transform = {}
-        self._height = 0
+        
+        self.parent_child = parent_child
+        if parent_child:
+            self.check_data()
+            self.check_height()
+            print(self.nmodes)
+        else:
+            self.n_qubits = n_qubits
+            if nmodes:
+                self.nmodes = nmodes
+            else:
+                self.nmodes = n_qubits        
+            self._height = 0
+        
         if enum_list == None:
-            self.enum_list = st_enumeration(self.n_qubits)
-            l = []
-            for pair in self.enum_list:
-                l += pair
-            self.enum_list = l
-        elif len(enum_list) == n_qubits*2:
+            self.enum_list = st_enumeration(self.nmodes)
+        elif len(enum_list) == self.nmodes:
             self.enum_list = enum_list[:]
+            
         else:
             raise ValueError
             
-        if parent_child != None:
-            self.parent_child = parent_child
-        else:
+        l = []
+        for pair in self.enum_list:
+            l += pair
+        self.enum_list = l
+
+        self.max_tree = self.build_max_tree()
+        
+        self.max_tree = self.build_max_tree()
+        if not parent_child:
             self.parent_child = copy.deepcopy(self.max_tree)
+            self.build_alpha_beta_tree()
+               
         self.set_num_qubit_transform()
-        self.build_alpha_beta_tree()
-            #ВОт здесь возможно нужен @setter
-            
+        
+    def check_data(self):
+        self.n_qubits = len(self.parent_child)
+        self.nmodes = 0
+        for nodes in self.parent_child:
+            for child in self.parent_child[nodes].childs:
+                if isinstance(child,EnumInfo): 
+                    self.nmodes += 1 
+        self.nmodes = self.nmodes // 2 
     @property
     def min_height(self):
         """
@@ -100,11 +130,12 @@ class BaseTree:
         """
         Return tree's height
         """
+        self.check_height()
         return self._height
     
     def check_height(self):
         """
-        this method should be wherever the height could be changed 
+        This method should be wherever the height could be changed 
         """
         h = 0
         h_max = 0
@@ -130,11 +161,9 @@ class BaseTree:
         """
         function for qubit consistent numeration due to its possible deleting or inserting
         """
-        i = 0
         self.num_qubit_transform = {}
-        for parent in self.parent_child:
+        for i, parent in enumerate(self.parent_child):
             self.num_qubit_transform[parent] = i
-            i += 1
             
             
     def build_alpha_beta_tree(self):
@@ -213,10 +242,13 @@ class BaseTree:
         self.set_num_qubit_transform()
         
         
-    def num_branches(self):
+    def num_branches(self,enum_list = None):
         """
         Numerate branches of the tree
         """
+        if enum_list:
+            self.enum_list = enum_list
+            
         k = []
         s = []
         i = 0
@@ -229,6 +261,7 @@ class BaseTree:
                     self.parent_child[parent][index] = EnumInfo(self.enum_list.index(i) + 1)
                     i += 1
         down(0,k)
+        return self
 
     def delete_node(self,node):
         """
@@ -343,10 +376,13 @@ class BaseTree:
         def down(parent,k):
             nonlocal s, enum_list
             for index, child in enumerate(self.parent_child[parent].childs):
+#                 print("ger")
                 if child:
                     down(child, k +  [str(parent) + gate_name[index]])
                 elif child != False:
+#                     print(str(parent) + gate_name[index])
                     s.append( k + [str(parent) +  gate_name[index]] )
+#                     print(s)
                     enum_list.append(self.parent_child[parent][index])
         
         down(0,k)

@@ -69,17 +69,24 @@ def prod_exp(pt, pauli,signphi = False):
 
 
 class InitstateTTInfo:
-    def __init__(self,nmodes,num_list = None):
+    def __init__(self,tt = None, nmodes = None,num_list = None):
         """
         Class for signs check after unitary operation \exp^{i\pi/2 pauli} 
         """
-        self.nmodes = nmodes 
-        self.num_list = num_list
-        self.oqe, self.tqe = self.get_entenglement() #[tuple(1,"X")] , [tuple([n,m], ["IX","IY"...])]
-        self.pttt = _pauli_table_TT(self.nmodes, self.num_list)
-        self.ptjw = _pauli_table_JW(self.nmodes, self.num_list)
-        self.prod = self.prod_table(_pauli_table_TT(nmodes,self.num_list)[0])
-        
+        if not tt:
+            
+            self.nmodes = nmodes 
+            self.num_list = num_list
+            self.oqe, self.tqe = self.get_entenglement() #[tuple(1,"X")] , [tuple([n,m], ["IX","IY"...])]
+            self.pttt = _pauli_table_TT(self.nmodes, num_list = self.num_list)
+#             self.ptjw = _pauli_table_JW(self.nmodes, num_list = self.num_list)
+            self.prod = self.prod_table(self.pttt[0])
+        else:
+            self.nmodes = tt.nmodes
+            self.num_list = tt.enum_list
+            self.pttt = _pauli_table_TT(self.nmodes, tt = tt)
+            self.prod = self.prod_table(self.pttt[0])
+#             print(self.pttt)
     def prod_table(self, pauli_table_str):
         def prod_pauli(g1,g2):
             g1 = re.findall("[XYZI]",g1)
@@ -112,6 +119,7 @@ class InitstateTTInfo:
 #         return signs
     def check_signs(self):
         pt = self.pttt
+#         print(pt)
         help_dict = {'XY': -1,'YX': 1}
         def check_order(s1,s2):
             sign = 1
@@ -142,7 +150,7 @@ class InitstateTTInfo:
         return signs
 
     def get_entenglement(self):
-        prod = self.prod_table(_pauli_table_TT(self.nmodes, self.num_list)[0])
+        prod = self.prod_table(_pauli_table_TT(self.nmodes, num_list = self.num_list)[0])
         qubit_list = [i for i in range(self.nmodes)]
         oqe = self._one_qubit_entenglement(prod, qubit_list)
         tqe = self._two_qubits_entanglement(qubit_list, prod)
@@ -254,10 +262,13 @@ class TT_initial_state(BlueprintCircuit):
         self.enum_list = enum_list
         self.ins = ins
         self.nmodes = nmodes
+        if "tt" in kwargs:
+            self.tt = kwargs["tt"].num_branches(self.enum_list)
+        else:
+            self.tt = TernaryTree(self.nmodes, enum_list = self.enum_list)
+        self.n_qubits = self.tt.n_qubits
         self.num_particles = num_particles
-        self.qregs = [QuantumRegister(nmodes, name="q")]
-        print(self.enum_list)
-        self.tt = kwargs.get("tt", TernaryTree(self.nmodes, enum_list = self.enum_list))
+        self.qregs = [QuantumRegister(self.n_qubits, name="q")]
         self._build()
         
     def _check_configuration(self, raise_on_failure: bool = True) -> bool:
@@ -307,24 +318,28 @@ class TT_initial_state(BlueprintCircuit):
 #                 self.x(k[1])
 #         for sym in reversed(s):
 #             self.compose(PauliTrotterEvolution().evolution_for_pauli(PauliOp(Pauli(sym), pi/4)).to_circuit(), inplace = True)
-        
+        itt = InitstateTTInfo(self.tt,nmodes = None,num_list = None)
         s = self.tt.to0vac()
-        itt = InitstateTTInfo(self.nmodes)
-#       
+#         print(s)
+        
+#         print(itt.pttt)
         for i in range(self.num_particles[0]):
             itt.pttt[1][i][1] = -itt.pttt[1][i][1]
         for i in range(self.num_particles[1]):
             itt.pttt[1][i + self.nmodes//2][1] *= -1
+#         print(itt.pttt)
+#         print("------------------------")
         for sym in s:
+#             print(sym)
             itt.pttt = prod_exp(itt.pttt, sym, signphi = False)
-        
-        
+#             print(itt.pttt)
+#         print("------------------------")
         signs = itt.check_signs()
+#         print(signs)
 #         Подготовка состояния Хартри-Фока
         for k in signs:
             if signs[k] == 1:
-                self.x(self.nmodes - k - 1)
-        
+                self.x(self.n_qubits - k - 1)
         for sym in reversed(s):
 #             sym1 = ''
 #             for r in reversed(sym):

@@ -87,15 +87,22 @@ class TernaryTree(BaseTree):
         
         first, index = _check_xy()
         parent = 0 
+#         if len(self.parent_child[parent].childs) > 2:
         child = self.parent_child[parent][2]
-        while child:
-            parent = child
-            child = self.parent_child[parent][2]
-        s.append(self.branch_transposition(first, index, parent,2))
+#         print(self)
+        if child:
+#             print("asdf")
+            while child:
+                parent = child
+                child = self.parent_child[parent][2]
+            if not isinstance(child,bool):
+                s.append(self.branch_transposition(first, index, parent,2))
+#         print("asdf")
 #         s.append(self.branch_transposition(first, 0, _find_second_branch(first,0), 2))
 #         s.append(self.branch_transposition(first, 1, _find_second_branch(first,1), 2))
-        
         branches, num_list = self.branches(get_num = True)
+#         print(branches)
+#         print(self)
 #         num_list = [num.num for num in num_list]
         new_branches = [[] for _ in range(len(branches))]
         for i,branch in enumerate(branches):
@@ -122,6 +129,7 @@ class TernaryTree(BaseTree):
                                     branches[_index][-1][1]))
                             num_list[index ],num_list[_index] = num_list[_index],num_list[index ]
                             break
+#         print(self)
         return s
     
     def tojw(self):
