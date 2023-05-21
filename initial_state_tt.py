@@ -83,7 +83,6 @@ class InitstateTTInfo:
             self.prod = self.prod_table(self.pttt[0])
         else:
             self.nmodes = tt.nmodes
-            self.num_list = tt.enum_list
             self.pttt = _pauli_table_TT(self.nmodes, tt = tt)
             self.prod = self.prod_table(self.pttt[0])
 #             print(self.pttt)
@@ -150,7 +149,7 @@ class InitstateTTInfo:
         return signs
 
     def get_entenglement(self):
-        prod = self.prod_table(_pauli_table_TT(self.nmodes, num_list = self.num_list)[0])
+        prod = self.prod_table(_pauli_table_TT(self.nmodes)[0])
         qubit_list = [i for i in range(self.nmodes)]
         oqe = self._one_qubit_entenglement(prod, qubit_list)
         tqe = self._two_qubits_entanglement(qubit_list, prod)
@@ -319,7 +318,8 @@ class TT_initial_state(BlueprintCircuit):
 #         for sym in reversed(s):
 #             self.compose(PauliTrotterEvolution().evolution_for_pauli(PauliOp(Pauli(sym), pi/4)).to_circuit(), inplace = True)
         itt = InitstateTTInfo(self.tt,nmodes = None,num_list = None)
-        s = self.tt.to0vac()
+        tt = copy.deepcopy(self.tt)
+        s = tt.to0vac()
 #         print(s)
         
 #         print(itt.pttt)
@@ -330,10 +330,7 @@ class TT_initial_state(BlueprintCircuit):
 #         print(itt.pttt)
 #         print("------------------------")
         for sym in s:
-#             print(sym)
             itt.pttt = prod_exp(itt.pttt, sym, signphi = False)
-#             print(itt.pttt)
-#         print("------------------------")
         signs = itt.check_signs()
 #         print(signs)
 #         Подготовка состояния Хартри-Фока

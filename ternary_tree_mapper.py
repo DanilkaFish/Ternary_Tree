@@ -11,24 +11,25 @@ from qiskit_nature.second_q.operators import FermionicOp
 from qiskit_nature.second_q.mappers import FermionicMapper
 import copy
 import numpy as np
-
+from .TernaryTree import TernaryTree
 from qiskit_nature import QiskitNatureError
 from qiskit_nature.second_q.operators import SparseLabelOp
 from .pauli_tables import pauli_table_TT
 
 class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docstring
     
-    def __init__(self, es_problem,trans = None,enum_list = None, tt = None):
+    def __init__(self, es_problem,trans = None,enum_list = None, tt = 0):
         """The Teranry Tree fermion-to-qubit mapping. Standart mapping is alpha_beta_tree"""
-#         if tt == None:
-#             owntt = True
-        self.tt = tt
-        self.nmodes = es_problem.num_spin_orbitals 
-        self.enum_list = enum_list
-        if trans:
-            self.trans = trans
-        else:
-            self.trans = [i for i in range(self.nmodes)]
+#         print(type(tt),type(TernaryTree))
+        if isinstance(tt,TernaryTree):
+        
+            self.tt = tt
+            self.tt.num_branches()
+            self.nmodes = tt.nmodes
+            if trans:
+                self.trans = trans
+            else:
+                self.trans = [i for i in range(self.nmodes)]
         self.num_alpha, self.num_beta = es_problem.num_particles
         self.n_electrons = self.num_alpha + self.num_beta
         
@@ -39,12 +40,11 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
         return int(trunc(log(2*self.nmodes + 1)/log(3) - 0.001)) + 1
 
     def pauli_table(self, nmodes):
-        pt = copy.copy(pauli_table_TT(nmodes, num_list = self.enum_list,tt = self.tt))
-#         print(pt)
+        pt = copy.copy(pauli_table_TT(nmodes, tt = self.tt))
         pauli_table = [None]*self.nmodes 
         for i,t in enumerate(self.trans):
             pauli_table[t] = pt[i]
-#         print(pauli_table)
+        
         return pauli_table
     
     @lru_cache(maxsize=32)

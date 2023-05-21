@@ -58,7 +58,7 @@ def st_enumeration(nmodes):
 #     num_list = [2*i for i in range(nmodes//2)]
 #     num_list.append([[2*i + 1 for i in range(nmodes//2)]])
     return num_list
-### СЕТЕР ДЛЯ ENUM_LIST ОРГАНИЗУЙ ПОТОМ
+
 class BaseTree:
     """ This is class for representation ternary tree and its manipualtions"""
     def __init__(
@@ -79,7 +79,7 @@ class BaseTree:
         if parent_child:
             self.check_data()
             self.check_height()
-            print(self.nmodes)
+            
         else:
             self.n_qubits = n_qubits
             if nmodes:
@@ -89,17 +89,16 @@ class BaseTree:
             self._height = 0
         
         if enum_list == None:
-            self.enum_list = st_enumeration(self.nmodes)
+            self._enum_list = st_enumeration(self.nmodes)
         elif len(enum_list) == self.nmodes:
-            self.enum_list = enum_list[:]
-            
+            self._enum_list = enum_list[:]
         else:
             raise ValueError
             
         l = []
         for pair in self.enum_list:
             l += pair
-        self.enum_list = l
+        self._enum_list = l
 
         self.max_tree = self.build_max_tree()
         
@@ -107,8 +106,10 @@ class BaseTree:
         if not parent_child:
             self.parent_child = copy.deepcopy(self.max_tree)
             self.build_alpha_beta_tree()
-               
-        self.set_num_qubit_transform()
+        else:
+            self.set_num_qubit_transform()
+            self.num_branches()
+        
         
     def check_data(self):
         self.n_qubits = len(self.parent_child)
@@ -117,7 +118,21 @@ class BaseTree:
             for child in self.parent_child[nodes].childs:
                 if isinstance(child,EnumInfo): 
                     self.nmodes += 1 
-        self.nmodes = self.nmodes // 2 
+        self.nmodes = self.nmodes // 2
+    @property
+    def enum_list(self):
+        return self._enum_list
+    @enum_list.setter
+    def enum_list(self,num_list):
+        if num_list:
+            self._enum_list = num_list
+        else:
+            self._enum_list = st_enumeration(self.nmodes) 
+        if len(self._enum_list[0]) == 2:
+            l = []
+            for pair in self.enum_list:
+                l += pair
+            self._enum_list = l
     @property
     def min_height(self):
         """
@@ -372,17 +387,13 @@ class BaseTree:
         s = []
         L = self.height
         enum_list = []
-#         print(L)
         def down(parent,k):
             nonlocal s, enum_list
             for index, child in enumerate(self.parent_child[parent].childs):
-#                 print("ger")
                 if child:
                     down(child, k +  [str(parent) + gate_name[index]])
                 elif child != False:
-#                     print(str(parent) + gate_name[index])
                     s.append( k + [str(parent) +  gate_name[index]] )
-#                     print(s)
                     enum_list.append(self.parent_child[parent][index])
         
         down(0,k)

@@ -61,7 +61,7 @@ def jwenergy(bond_length, at_name, nmodes =None, basis = "STO-3G"):
     calc = GroundStateEigensolver(converter, vqe_solver)
     inenergy = final_state.expectation_value(main_operator)
     return inenergy + es_problem.nuclear_repulsion_energy
-def ttenergy_opt4( bond_length = "1",at_name = "H",nmodes = 4, basis="STO-3G", active_orbitals = None, only_hartree = True):
+def ttenergy_opt4( bond_length = "1",at_name = "H",nmodes = 4, basis="STO-3G", active_orbitals = None, enum_list = None, only_hartree = True):
     if not active_orbitals:
         active_orbitals = [i for i in range(nmodes//2)]
     driver = PySCFDriver(
@@ -78,20 +78,25 @@ def ttenergy_opt4( bond_length = "1",at_name = "H",nmodes = 4, basis="STO-3G", a
     es_problem = transformer.transform(es_problem)
 
     parent_child = get_bin_parent_child(nmodes)
-    tt = TernaryTree(parent_child = parent_child)
+    tt = TernaryTree(parent_child = parent_child,enum_list = enum_list)
 #     print(tt)
 #     print(tt.parent_child)
+#     print(tt)
     mapper = TernaryTreeMapper(es_problem, tt = tt)
     converter = QubitConverter(mapper)
     # print(converter)
     qc = TT_initial_state(es_problem.num_spin_orbitals, es_problem.num_particles, tt = tt)
+#     print(tt)
+#     print("asdf")
     u = UCC(qubit_converter = converter,  num_spatial_orbitals = es_problem.num_spin_orbitals//2, 
         num_particles = (es_problem.num_alpha, es_problem.num_beta), excitations = 'sd')
+#     print("asdf")
     u = u.decompose(reps = 2)
-    # print(u)
-
-    ucc, _ =optimize_ucc(u) 
-    
+#     print(u)
+#     print(tt)
+#     ucc, _ =optimize_ucc(u) 
+    ucc = u 
+#     print(tt)
     converter = QubitConverter(mapper)
     main_operator = converter.convert(
             es_problem.second_q_ops()[0],
@@ -101,16 +106,22 @@ def ttenergy_opt4( bond_length = "1",at_name = "H",nmodes = 4, basis="STO-3G", a
     final_state = Statevector(qc)
     
     
-    
+#     SLSQP(maxiter= 300)
     if not only_hartree:
         ucc = qc.compose(ucc)
-        vqe_solver = VQE(Estimator(), ucc,  SLSQP())
+        vqe_solver = VQE(Estimator(), ucc,   SLSQP(maxiter = 1000), initial_point = [0]*ucc.num_parameters)
         calc = GroundStateEigensolver(converter, vqe_solver)
         res = calc.solve(es_problem)
         inenergy = final_state.expectation_value(main_operator)
     
         return res.total_energies, inenergy + res.nuclear_repulsion_energy 
     else:
+        
+        
+#         ucc = qc.compose(ucc)
+#         final_state = Statevector(ucc)
+        
+        
         inenergy = final_state.expectation_value(main_operator)
 
         return inenergy + es_problem.nuclear_repulsion_energy,inenergy + es_problem.nuclear_repulsion_energy
@@ -161,13 +172,13 @@ def ttenergy(bond_length, at_name, nmodes = None, basis = "STO-3G",only_hartree 
         return inenergy + es_problem.nuclear_repulsion_energy,inenergy + es_problem.nuclear_repulsion_energy
 
 import pyscf
-def energy_classic(bond_length, at_name, nmodes = None, basis = "STO-3G"):
+def energy_classic(bond_length, at_name, nmodes = None, basis = "6-31G"):
 
     mol = pyscf.M(
         atom = "H 0 0 0;" + at_name + " 0 0 " + str(bond_length),
         basis = basis)
     mf = mol.HF().run()
-    mycc = mf.CISD().run()
+    mycc = mf.CCSD().run()
 
     return mycc.e_tot, mf.e_tot
 

@@ -30,10 +30,13 @@ def optimize_ucc(
     n_qubits = u.num_qubits
     ins = [inst for inst in u]
     pass_manager = generate_preset_pass_manager(optimization_level = 3)
-
+#     print(u)
+#     print(u.decompose(reps = 2))
     pauli_list = [inst.operation.name[7:-1] for inst in ins]
+#     print(pauli_list)
     p,targ, r = pauli_composing(pauli_list)
     u0 = QuantumCircuit(n_qubits)
+#     print(pauli_list)
     for i,pauli in enumerate(p):
         param = ins[pauli_list.index(pauli)].operation.params[0]
         qc = evolve_pauli(
@@ -44,7 +47,8 @@ def optimize_ucc(
             target = targ[i]
         )
         u0 = u0.compose(qc)
-
+#     print(u0.num_parameters)
+#     print(u0)
     u0  = u0.decompose(reps = 4)
     u0 = pass_manager.run(u0)   
     u0  = u0.decompose(reps = 4)

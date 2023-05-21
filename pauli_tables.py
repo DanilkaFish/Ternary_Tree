@@ -11,25 +11,18 @@ from .TernaryTree import TernaryTree
 
 def _pauli_table_TT(nmodes,**kwargs):
     #     Здесь может быть ошибка
-    num_list = kwargs.get("num_list", None)
-    print(num_list)
+
     tt =  kwargs.get("tt", None)
     if tt == None:
-        tt = TernaryTree(nmodes,enum_list = num_list)
-        
+        tt = TernaryTree(nmodes)
         tt.build_alpha_beta_tree()
         n_qubits = nmodes
     else:
         n_qubits = tt.n_qubits
         nmodes = tt.nmodes
-        num_list = [[tt.enum_list[2*i],tt.enum_list[2*i + 1]] for i in range(nmodes)] 
-#     print(tt.parent_child)
-    branches = tt.branches()
-#     print(branches)
+#         num_list = [[tt.enum_list[2*i],tt.enum_list[2*i + 1]] for i in range(nmodes)] x
+    branches, num_list = tt.branches(get_num = True)
 
-    if not num_list:
-#         print("ge")
-        num_list = st_enumeration(nmodes)
     def branch_to_str(branch):
         pauli_list = ["I"]*n_qubits
         pauli_str = ""
@@ -40,7 +33,7 @@ def _pauli_table_TT(nmodes,**kwargs):
         return pauli_str
     pauli_table_str = []
     for i in range(nmodes):
-        pauli_table_str.append( (branch_to_str(branches[num_list[i][0]]) ,  branch_to_str(branches[num_list[i][1]]) )) 
+        pauli_table_str.append( (branch_to_str(branches[num_list.index(2*i + 1)]) ,  branch_to_str(branches[num_list.index(2*i + 2)]) ))
 #     for i in range(nmodes + nmodes - 1, nmodes + nmodes//2 - 1, -1):
 #         pauli_table_str.append( (branch_to_str(branches[i]) , branch_to_str(branches[-i + nmodes*3]))) 
     return [pauli_table_str,[[1,-1j] for _ in range(len(pauli_table_str))]]
@@ -52,7 +45,6 @@ def pauli_table_TT(nmodes,**kwargs):
 
     for i in range(nmodes):
         pauli_table.append( (Pauli( pauli_table_str[i][0] ), Pauli( pauli_table_str[i][1])) )
-
     return pauli_table
 
 def _pauli_table_JW(nmodes, num_list = None):
