@@ -11,6 +11,77 @@ class TernaryTree(BaseTree):
     """
     Ternary tree object for initial state preparation
     """
+        
+    def branch_transposition(self,first_node,first_edge, second_node, second_edge):
+        """
+        Transpose subtrees or branches  wtih preserving of nodes numeration. Return pauli operator implementing this transformation.
+        first_node = int -- node number in tree
+        first_edge = 0|1|2 -- edge which connected first_node with its parent 
+        second_node = int -- node number in tree
+        second_edge = 0|1|2 -- edge which connected second_node with its parent
+        """
+        s = ["I"]*len(self.parent_child)
+        closest_node = self._closest_parent(first_node,second_node)
+        node1 = first_node
+        edge1 = gate_name[first_edge]
+        while closest_node != node1:
+            s[node1] = edge1 
+            for index,child in enumerate(self.parent_child[self.parent_child[node1].parent]):
+                if child == node1:
+                    edge1 = gate_name[index]
+            node1 = self.parent_child[node1].parent
+        node2 = second_node
+        edge2 = gate_name[second_edge]
+        while closest_node != node2:
+            s[node2] = edge2 
+            for index,child in enumerate(self.parent_child[self.parent_child[node2].parent]):
+                if child == node2:
+                    edge2 = gate_name[index]
+            node2 = self.parent_child[node2].parent
+        s[closest_node] = dict_prod[edge1 + edge2]
+        
+        # меняю информацию у first_node: child := parent_shild[second_node][second_edge] и [second_node][second_edge] если нужно
+        info = self.parent_child[first_node][first_edge]
+        self.parent_child[first_node][first_edge] = self.parent_child[second_node][second_edge] 
+        if self.parent_child[second_node][second_edge]: # здесь еще нужно поменять инфо у [second_node][second_edge]
+            old_child = self.parent_child[second_node][second_edge]
+            self.parent_child[old_child].parent = first_node
+
+        # меняю информацию у second_node: child := parent_shild[first_node][first_edge] и [first_node][first_edge] если нужно
+        self.parent_child[second_node][second_edge] = info
+        if info:
+            old_child = info
+            self.parent_child[old_child].parent = second_node        
+
+        self.check_height()
+        return ''.join(s)
+    
+    
+    def _closest_parent(self,first_node,second_node):
+        """
+        Return closest parent to the first and second node
+        """
+        def check_node(init_node,search_node):
+            """
+            Check whether init_node is parent of search_node or not
+            """
+            flag = True
+            def down(node,search_node):
+                nonlocal flag
+                for index, child in enumerate(self.parent_child[node].childs):
+                    if child == search_node:
+                        flag = False
+                    if child:
+                        down(child, search_node)
+            if init_node ==second_node:
+                return False
+            down(init_node,search_node)           
+            return flag
+        while check_node(first_node,second_node):
+            first_node = self.parent_child[first_node].parent
+        return first_node
+    
+    
     def to0vac(self):
         """
         Use algorithm described in the graduate work
