@@ -120,7 +120,8 @@ class BaseTree:
                 self.nmodes = n_qubits        
             self._height = 0
             self.build_alpha_beta_tree()
-        self.enum_list = enum_list        
+        if enum_list: 
+            self.enum_list = enum_list        
     
     @property
     def parent_child(self):
@@ -142,6 +143,15 @@ class BaseTree:
     
     @enum_list.setter
     def enum_list(self,num_list):
+        def check_enum_list():
+            inf = min(self.enum_list)
+            if len(self._enum_list) == self.nmodes*2 :
+                self._enum_list = [num - inf for num in self.enum_list]
+            else:
+                raise ValueError("Wrong numeration list length. Should be " + str(2*self.nmodes) + " , but " + str(len(self._enum_list)) + " were given ")
+            for i in range(2*self.nmodes):
+                if i not in self.enum_list:
+                    raise ValueError("Numeration has to contain all the number beetwen min(num_list) and min(num_list) + self.nmodes*2")
         if num_list:
             self._enum_list = num_list
         else:
@@ -151,6 +161,7 @@ class BaseTree:
             for pair in self.enum_list:
                 l += pair
             self._enum_list = l
+        check_enum_list()
         self.num_branches()
         
     @property
@@ -177,7 +188,7 @@ class BaseTree:
             if not isinstance(parent, int):
                 raise ValueError("Parent should be int object, not " + str(type(parent)))
             if parent in check:
-                raise TreeStructureError('Multiple initialization of parent node with number ' + str(parent))
+                raise ValueError('Multiple initialization of parent node with number ' + str(parent))
             check[parent] = None 
 
         for parent in parent_child:
@@ -209,9 +220,9 @@ class BaseTree:
                     self.nmodes += 1
                         
         if self.nmodes % 2 == 1:
-            raise TreeStructureError("parent_child should contain only even number branches")
+            raise ValueError("parent_child should contain only even number branches")
         self.nmodes = self.nmodes // 2
-        if renum_flag or any([not num in range(0,self.nmodes*2) for num in num_list]):
+        if renum_flag:
             self.enum_list = st_enumeration(self.nmodes)
         else:
             self.enum_list = num_list
@@ -318,7 +329,7 @@ class BaseTree:
         
     def build_max_tree(self, height = 0):
         """
-        Build tree with all possible nodes and childs with height = self.min_height | height. Сonvenient for obtaining the necessary structures through nodes removal.
+        Build tree (parent_child) with all possible nodes and childs with height = self.min_height | height. Сonvenient for obtaining the necessary structures through nodes removal.
         """
         parent_child = {} 
         L = max(height,self.min_height)
@@ -340,7 +351,7 @@ class BaseTree:
         
     def num_branches(self,enum_list = None):
         """
-        Consistently numerate branches of the tree
+        Numerate branches of the tree
         """
         if enum_list:
             self.enum_list = enum_list
