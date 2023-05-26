@@ -29,7 +29,7 @@ def count_non_I(syms):
         n += d[sym]
     return n
 dict_prod_coef = {"II" : ["I",1] , "XX" :  ["I",1] , "YY" :  ["I",1] ,"ZZ" :  ["I",1] , 
-             "XY" :  ["Z",1j] ,"YX" : ["Z", - 1j],"XZ" : ["Y",-1j], "ZX" : ["Y",1j],"YZ" : ["X",1j],"ZY" : ["X",-1j],
+             "XY" :  ["Z", 1j] ,"YX" : ["Z", -1j],"XZ" : ["Y",-1j], "ZX" : ["Y",1j],"YZ" : ["X",1j],"ZY" : ["X",-1j],
             "IX" : ["X",1], "XI" : ["X",1], "YI" : ["Y",1],"IY" : ["Y",1],"IZ" : ["Z",1],"ZI" : ["Z",1]}
 
 
@@ -69,23 +69,19 @@ def prod_exp(pt, pauli,signphi = False):
 
 
 class InitstateTTInfo:
-    def __init__(self,tt = None, nmodes = None,num_list = None):
+    def __init__(self,tt = None, nmodes = 4,num_list = None):
         """
         Class for signs check after unitary operation \exp^{i\pi/2 pauli} 
         """
-        if not tt:
+        if isinstance(tt, TernaryTree):
+            self.tt = tt
             
-            self.nmodes = nmodes 
-            self.num_list = num_list
-            self.oqe, self.tqe = self.get_entenglement() #[tuple(1,"X")] , [tuple([n,m], ["IX","IY"...])]
-            self.pttt = _pauli_table_TT(self.nmodes, num_list = self.num_list)
-#             self.ptjw = _pauli_table_JW(self.nmodes, num_list = self.num_list)
-            self.prod = self.prod_table(self.pttt[0])
+
         else:
-            self.nmodes = tt.nmodes
-            self.pttt = _pauli_table_TT(self.nmodes, tt = tt)
-            self.prod = self.prod_table(self.pttt[0])
-#             print(self.pttt)
+            self.tt = TernaryTree(nmodes)
+        self.pttt = _pauli_table_TT(tt = tt)
+        self.prod = self.prod_table(self.pttt[0])
+        
     def prod_table(self, pauli_table_str):
         def prod_pauli(g1,g2):
             g1 = re.findall("[XYZI]",g1)
@@ -102,23 +98,8 @@ class InitstateTTInfo:
             prod[i] = prod[i]
         return prod
 
-#     def check_signs(self):
-#         pt = self.pttt
-#         def check_order(s):
-#             for index,sym in enumerate(s):
-#                 if sym == "X":
-#                     return [1,index]
-#                 if sym == "Y":
-#                     return [-1,index]
-#         signs = []
-#         for i in range(len(pt[0])):
-#             h_sign, index = check_order(pt[0][i][0])
-#             sign = int((pt[1][i][0]*1j*pt[1][i][1]).real) * h_sign
-#             signs.append([sign,self.nmodes - index - 1])
-#         return signs
     def check_signs(self):
         pt = self.pttt
-#         print(pt)
         help_dict = {'XY': -1,'YX': 1}
         def check_order(s1,s2):
             sign = 1
@@ -147,66 +128,6 @@ class InitstateTTInfo:
             else:
                 i = 0
         return signs
-
-    def get_entenglement(self):
-        prod = self.prod_table(_pauli_table_TT(self.nmodes)[0])
-        qubit_list = [i for i in range(self.nmodes)]
-        oqe = self._one_qubit_entenglement(prod, qubit_list)
-        tqe = self._two_qubits_entanglement(qubit_list, prod)
-        return oqe, tqe
-        
-    def _one_qubit_entenglement(self, prod, qubit_list):
-        n_qubits = len(qubit_list)
-        L = len(prod)
-        sym_qub = []
-        for n in qubit_list:
-            sym = ''
-            for j in range(L):
-                if prod[j][n] not in sym:
-                    sym += prod[j][n]
-            if len(sym) < 3:
-                sym_qub.append(tuple([n ,re.findall("[^I]",sym)]))
-        for n in sym_qub:
-            qubit_list.remove(n[0])
-        return  sym_qub
-    
-    def _two_qubits_entanglement(self, qubit_list, prod):
-        possible_pairs = copy.deepcopy( self._possible_pairs(prod,qubit_list) )
-        tqe = []
-        L = 0
-        def _get_dict():
-            diff_number_pair = {}
-            nonlocal L 
-            L = len(possible_pairs)
-            
-            for j in range(L):
-                pair = possible_pairs[j]
-                diff_number_pair[pair[0]] = diff_number_pair.get(pair[0],[]) + [pair]
-                diff_number_pair[pair[1]] = diff_number_pair.get(pair[1],[]) + [pair]
-            return diff_number_pair
-        
-        diff_number_pair = _get_dict()
-        while len(diff_number_pair):
-            min1, key1, min2, key2 = [self.nmodes]*4
-
-            for key in diff_number_pair:
-                l = len(diff_number_pair[key])
-                if l < min1:
-                    min1 = l
-                    key1 = key
-            for _pair in diff_number_pair[key1]:
-                i = _pair.index(key1)
-                l = len(diff_number_pair[_pair[i - 1]])
-                if l <min2:
-                    min2 = l
-                    key2 = _pair[i - 1]
-                    pair = _pair
-            tqe.append(tuple([pair, self.get_str_pairs(prod,pair)]))
-            for i in range(L-1,-1,-1):
-                if pair[0] in possible_pairs[i] or pair[1] in possible_pairs[i]:
-                    possible_pairs.pop(i)
-            diff_number_pair = _get_dict()
-        return tqe
     
     def _possible_pairs(self, prod, qubit_list):
         possible_pair = []
@@ -221,27 +142,16 @@ class InitstateTTInfo:
                 if l % 2 == 0:
                     possible_pair.append([n,k])
         return possible_pair
+   
     
-    def get_str_pairs(self,prod,pair):
-        str_pair = []
-        L = len(prod)
-        sym_qubs = []
-        for j in range(L):
-            sym_qubs.append(prod[j][pair[0]] + prod[j][pair[1]])
-        return sym_qubs
-    
-    
-
-
     
 class TT_initial_state(BlueprintCircuit):
     
     def __init__(
         self,
-        nmodes,
-        num_particles,
-        enum_list = None,
-        ins = None,
+        nmodes = 4,
+        num_particles = None,
+        tt = None,
         **kwargs
     ) -> None:
         """
@@ -258,15 +168,16 @@ class TT_initial_state(BlueprintCircuit):
         """
 
         super().__init__()
-        self.enum_list = enum_list
-        self.ins = ins
-        self.nmodes = nmodes
-        if "tt" in kwargs:
-            self.tt = kwargs["tt"].num_branches(self.enum_list)
+
+        if isinstance(tt,TernaryTree):
+            self.tt = tt
         else:
-            self.tt = TernaryTree(self.nmodes, enum_list = self.enum_list)
+            self.tt = TernaryTree(4)
         self.n_qubits = self.tt.n_qubits
-        self.num_particles = num_particles
+        if num_particles is None:
+            self.num_particles = (self.tt.nmodes//2,self.tt.nmodes//2)
+        else:
+            self.num_particles = num_particles
         self.qregs = [QuantumRegister(self.n_qubits, name="q")]
         self._build()
         
@@ -292,7 +203,8 @@ class TT_initial_state(BlueprintCircuit):
     
     def _build(self) -> None:
         """
-        Construct the Hartree-Fock initial state given its parameters.
+        Construct the Hartree-Fock initial state given its parameters for ternarytree via algorithm implemented in
+        TernaryTree.to0vac
         Returns:
             QuantumCircuit: a quantum circuit preparing the Hartree-Fock
             initial state given a number of spatial orbitals, number of particles and
@@ -302,45 +214,28 @@ class TT_initial_state(BlueprintCircuit):
             return
 
         super()._build()
-#         tt = TernaryTree(self.nmodes)
-#         s = tt.tojw()
-#         itt = InitstateTTInfo(self.nmodes)
-#         for sym in s:
-#             itt.pttt = prod_exp(itt.pttt, sym, signphi = False)
-#         signs = itt.check_signs()
-#         for i in range(self.num_particles[0]):
-#             signs[i][0] *= - 1
-#         for i in range(self.num_particles[1]):
-#             signs[i + self.nmodes//2][0] *= - 1
-#         for k in signs:
-#             if k[0] == -1:
-#                 self.x(k[1])
-#         for sym in reversed(s):
-#             self.compose(PauliTrotterEvolution().evolution_for_pauli(PauliOp(Pauli(sym), pi/4)).to_circuit(), inplace = True)
-        itt = InitstateTTInfo(self.tt,nmodes = None,num_list = None)
+
+        itt = InitstateTTInfo(self.tt)
         tt = copy.deepcopy(self.tt)
         s = tt.to0vac()
-#         print(s)
-        
-#         print(itt.pttt)
+        print(s)
+        # Majorana fermion operators signs check after transformations
         for i in range(self.num_particles[0]):
             itt.pttt[1][i][1] = -itt.pttt[1][i][1]
         for i in range(self.num_particles[1]):
-            itt.pttt[1][i + self.nmodes//2][1] *= -1
-#         print(itt.pttt)
-#         print("------------------------")
+            itt.pttt[1][i + self.tt.nmodes//2][1] *= -1
         for sym in s:
+            print(itt.pttt)
             itt.pttt = prod_exp(itt.pttt, sym, signphi = False)
+        print(itt.pttt)
+        print(tt)
         signs = itt.check_signs()
-#         print(signs)
-#         Подготовка состояния Хартри-Фока
+        print(signs)
+#        Hartee Fock state preparation
         for k in signs:
             if signs[k] == 1:
                 self.x(self.n_qubits - k - 1)
         for sym in reversed(s):
-#             sym1 = ''
-#             for r in reversed(sym):
-#                 sym1 += r
             self.compose(PauliTrotterEvolution().evolution_for_pauli(PauliOp(Pauli(sym), pi/4)).to_circuit(), inplace = True)
             
     

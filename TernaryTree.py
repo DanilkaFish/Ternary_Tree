@@ -1,4 +1,4 @@
-from .BaseTree import BaseTree
+from .BaseTree import BaseTree, EnumInfo
 
 
 gate_name = {0: 'X', 1: 'Y', 2: 'Z'}
@@ -21,7 +21,7 @@ class TernaryTree(BaseTree):
         second_edge = 0|1|2 -- edge which connected second_node with its parent
         """
         s = ["I"]*len(self.parent_child)
-        closest_node = self._closest_parent(first_node,second_node)
+        closest_node, _ = self._closest_parent(first_node,second_node)
         node1 = first_node
         edge1 = gate_name[first_edge]
         while closest_node != node1:
@@ -54,6 +54,7 @@ class TernaryTree(BaseTree):
             self.parent_child[old_child].parent = second_node        
 
         self.check_height()
+        self.set_data()
         return ''.join(s)
     
     
@@ -66,44 +67,58 @@ class TernaryTree(BaseTree):
             Check whether init_node is parent of search_node or not
             """
             flag = True
-            def down(node,search_node):
-                nonlocal flag
+            dist = 0
+            def down(node,search_node,_dist):
+                nonlocal flag, dist
                 for index, child in enumerate(self.parent_child[node].childs):
                     if child == search_node:
+                        dist = _dist + 1
                         flag = False
                     if child:
-                        down(child, search_node)
-            if init_node ==second_node:
-                return False
-            down(init_node,search_node)           
-            return flag
-        while check_node(first_node,second_node):
+                        down(child, search_node,_dist + 1)
+            if init_node == second_node:
+                return False, 0
+            down(init_node,search_node,0)           
+            return flag, dist
+        flag, dist0 = check_node(first_node,second_node) 
+        i = 0
+        while flag:
             first_node = self.parent_child[first_node].parent
-        return first_node
+            flag, dist0 = check_node(first_node,second_node) 
+            i += 1
+        return first_node, i + dist0
     
     
     def to0vac(self):
+        
         """
         Use algorithm described in the graduate work
         """
         help_dict = {0:1, 1:0}
         def _find_second_branch(node,edge):
-            parents,flag = -1, False
+            """
+            This function search branch to tranpose with given 
+            """
+            parent2,flag = -1, False
             def down(parent):
-                nonlocal parents, flag
+                nonlocal parent2, flag
                 for index, child in enumerate(self.parent_child[parent].childs):
                     if flag:
                         break
                     if parent == node and index == edge:
                         i=0
                     elif isinstance(child,EnumInfo) and index == 2:                        
-                        parents = parent
+                        parent2 = parent
                         flag = True
                     elif child:
                         down(child)
             down(0)
-            return parents
+            return parent2
+
         def _check_xy():
+            """
+            find unoccupied branch for transposition with Z...Z branch  
+            """
             parentf = 0 
             indexf = 0
             def down(parent):
@@ -115,6 +130,7 @@ class TernaryTree(BaseTree):
                         down(child)
             down(0)
             return [parentf,indexf]
+        
         def check_pair(pair):
             if min(pair[0],pair[1]) % 2 == 1 and abs(pair[0] - pair[1]) == 1:
                 return True
@@ -135,66 +151,150 @@ class TernaryTree(BaseTree):
                 if check_pair([ipair[1],pair[1]]):
                     return [2*index, 2*(i + index + 1) + 1]
        
-        def get_num(node):
-            while child:
-                child = self.parent
                 
-        def get_Zpair(node,branches):
-            child = node[0]
-            parent = self.parent_child[node[0]].parent
-            edge = self.parent_child[parent].childs.index(node[0]) 
-            #подъем до не Z
-            while edge == 2:
-                child = parent
-                parent = self.parent_child[parent].parent
-                edge = self.parent_child[parent].childs.index(child) 
-#             спуск до листа
-            child = self.parent_child[parent][help_dict[edge]]
-            while child:
-                parent = child 
-                child = self.parent_child[parent][2]
-            return child.num, [parent, self.parent_child[parent].childs.index(child)]
-        s = []
+        def get_pair(self,node1,edge1, node2, edge2, branches):
+            l = [branch[-1] for branch in branches]
+            index = self.enum_list[l.index([node1,gate_name[edge1]])]
+            if index % 2 ==0:
+                _index = index + 1
+            else:
+                _index = index - 1
+            _node, _edge = branches[self.enum_list.index(_index)][-1]
+            _, dist = self._closest_parent(node2,_node) 
+            return _node, gate_index[_edge], dist
         
-        first, index = _check_xy()
+        
+        
+        s = []
         parent = 0 
-#         if len(self.parent_child[parent].childs) > 2:
+        
+        # find Z...Z branch to eliminate it
         child = self.parent_child[parent][2]
-        if child:
-            while child:
-                parent = child
-                child = self.parent_child[parent][2]
-            if not isinstance(child,bool):
-                s.append(self.branch_transposition(first, index, parent,2))
-#         s.append(self.branch_transposition(first, 0, _find_second_branch(first,0), 2))
-#         s.append(self.branch_transposition(first, 1, _find_second_branch(first,1), 2))
-        branches, num_list = self.branches(get_num = True)
-#         num_list = [num.num for num in num_list]
-        new_branches = [[] for _ in range(len(branches))]
-        for i,branch in enumerate(branches):
-            for j,node in enumerate(branch):
-                (new_branches[i]).append([node[0],gate_index[node[1]]])
-        branches = new_branches
-        for index,branch in enumerate(branches):
-            
-            if branch[-1][1] == 0:
-                if branches[index + 1][-1][1] == 1:
-                    for _index,_node in enumerate([branch[-1] for branch in branches[index + 2:]]):
-                        if check_pair([num_list[index],num_list[_index +index + 2]]):
-                            s.append(self.branch_transposition(branches[index + 1][-1][0], 
-                                    branches[index + 1][-1][1], branches[_index+ index + 2][-1][0], 
-                                    branches[_index + index + 2][-1][1]))
-                            num_list[index + 1],num_list[_index + index + 2] = num_list[_index + index + 2],num_list[index + 1]
-                            break
-            if branch[-1][1] == 2:
-                num, _node = get_Zpair(branch[-1],branches)
-                if not check_pair([num_list[index],num]):
-                    for _index,_node in enumerate([branch[-1] for branch in branches]):
-                        if check_pair([num,num_list[_index]]):
-                            s.append(self.branch_transposition(branch[-1][0],branch[-1][1],branches[_index][-1][0], 
-                                    branches[_index][-1][1]))
-                            num_list[index ],num_list[_index] = num_list[_index],num_list[index ]
-                            break
+        while child:
+            parent = child
+            child = self.parent_child[parent][2]
+        if not isinstance(child,bool):
+            first, index = _check_xy()
+            s.append(self.branch_transposition(first, index, parent,2))
+        
+#         Лучше через parent_child сделать
+#         first leaf
+        i = 0
+        for i in range(self.nmodes):
+            branches = self.branches()
+            node, edge = branches[self.enum_list.index(2*i)][-1]
+            edge = gate_index[edge]
+            if edge == 0:
+                if isinstance(self.parent_child[node][1],bool):
+                    s.append(self.branch_transposition(node,1,node,2))
+                if isinstance(self.parent_child[node][1],EnumInfo):
+                    _node = node
+                    _edge = 1
+                
+                else:
+                    _node = self.parent_child[node][1]
+                    _edge = 2
+                    while not isinstance(self.parent_child[_node][2],EnumInfo):
+                        if isinstance(self.parent_child[_node][2],bool):
+                            s.append(self.branch_transposition(_node,2,_node,1))
+                        else:
+                            _node = self.parent_child[_node][2]
+                branches = self.branches()
+                
+                node1,edge1,dist1 = get_pair(self,node, edge, _node, _edge, branches)
+#                 node2,edge2,dist2 = get_pair(self,_node, _edge, node, edge, branches) 
+                if node1 != _node or edge1 != _edge:
+                    
+#                     if dist1 < dist2:
+                    s.append(self.branch_transposition(_node,_edge,node1,edge1))
+#                     else:
+#                         s.append(self.branch_transposition(node,edge,node2,edge2))
+            if edge == 1:
+                if isinstance(self.parent_child[node][0],bool):
+                    s.append(self.branch_transposition(_node,0,node,2))
+                if isinstance(self.parent_child[node][0],EnumInfo):
+                    _node = node
+                    _edge = 0
+                
+                else:
+                    _node = self.parent_child[node][0]
+                    _edge = 2
+                    while not isinstance(self.parent_child[_node][2],EnumInfo):
+                        if isinstance(self.parent_child[node][2],bool):
+                            s.append(self.branch_transposition(_node,2,_node,0))
+                        else:
+                            _node = self.parent_child[_node][2]
+                branches = self.branches()
+                
+                node1,edge1,dist1 = get_pair(self,node, edge, _node, _edge, branches)
+#                 node2,edge2,dist2 = get_pair(self,_node, _edge, node, edge, branches) 
+                if node1 != _node or edge1 != _edge:
+                    
+#                     if dist1 < dist2:
+                    s.append(self.branch_transposition(_node,_edge,node1,edge1))
+#                     else:
+#                         s.append(self.branch_transposition(node,edge,node2,edge2))
+            if edge == 2:
+                n = node
+                _node = self.parent_child[node].parent
+                _edge = self.parent_child[_node].childs.index(node)
+                while _edge == 2:
+                    # Подъем до не Z edge
+                    n = _node
+                    _node = self.parent_child[_node].parent
+                    _edge = sefl.parent_child[_node].childs.index(n)
+                n = _node
+                # cпуск по Z
+                if _edge == 0:
+                    if isinstance(self.parent_child[n][1],bool):
+                        s.append(self.branch_transposition(n,1,n,2))
+                        
+                    if isinstance(self.parent_child[n][1],EnumInfo):
+                        _node = n
+                        _edge = 1
+
+                    else:
+                        _node = self.parent_child[n][1]
+                        _edge = 2
+                        while not isinstance(self.parent_child[_node][2],EnumInfo):
+                            if isinstance(self.parent_child[_node][2],bool):
+                                s.append(self.branch_transposition(_node,2,_node,1))
+                            else:
+                                _node = self.parent_child[_node][2]
+                    
+                    branches = self.branches()
+                    node1,edge1,dist1 = get_pair(self,node, edge, _node, _edge, branches)
+                    node2,edge2,dist2 = get_pair(self,_node, _edge, node, edge, branches) 
+                    if node1 != _node or edge1 != _edge:
+
+                        if dist1 < dist2:
+                            s.append(self.branch_transposition(_node,_edge,node1,edge1))
+                        else:
+                            s.append(self.branch_transposition(node,edge,node2,edge2))
+                if edge == 1:
+                    if isinstance(self.parent_child[n][0],bool):
+                        s.append(self.branch_transposition(n,0,n,2))
+                    if isinstance(self.parent_child[n][0],EnumInfo):
+                        _node = node
+                        _edge = 0
+
+                    else:
+                        _node = self.parent_child[n][0]
+                        _edge = 2
+                        while not isinstance(self.parent_child[_node][2],EnumInfo):
+                            if isinstance(self.parent_child[_node][2],bool):
+                                s.append(self.branch_transposition(_node,2,_node,0))
+                            else:
+                                _node = self.parent_child[_node][2]
+                    branches = self.branches()
+                    node1,edge1,dist1 = get_pair(self,node, edge, _node, _edge, branches)
+                    node2,edge2,dist2 = get_pair(self,_node, _edge, node, edge, branches) 
+                    if node1 != _node or edge1 != _edge:
+
+                        if dist1 < dist2:
+                            s.append(self.branch_transposition(_node,_edge,node1,edge1))
+                        else:
+                            s.append(self.branch_transposition(node,edge,node2,edge2))
         return s
     
     def tojw(self):

@@ -110,6 +110,7 @@ class BaseTree:
         """
         
         self._parent_child = copy.deepcopy(parent_child)
+        self._enum_list = enum_list
         if self._parent_child:
             self.parent_child = self._parent_child
         else:
@@ -120,9 +121,8 @@ class BaseTree:
                 self.nmodes = n_qubits        
             self._height = 0
             self.build_alpha_beta_tree()
-        if enum_list: 
-            self.enum_list = enum_list        
-    
+        if enum_list:
+            self.enum_list = enum_list
     @property
     def parent_child(self):
         return self._parent_child
@@ -151,7 +151,7 @@ class BaseTree:
                 raise ValueError("Wrong numeration list length. Should be " + str(2*self.nmodes) + " , but " + str(len(self._enum_list)) + " were given ")
             for i in range(2*self.nmodes):
                 if i not in self.enum_list:
-                    raise ValueError("Numeration has to contain all the number beetwen min(num_list) and min(num_list) + self.nmodes*2")
+                    raise ValueError("Numeration has to contain all the number beetwen 0 and " + str(2*self.nmodes) + ", but yout list is " + str(self.enum_list))
         if num_list:
             self._enum_list = num_list
         else:
@@ -195,14 +195,11 @@ class BaseTree:
             append(parent)
             if isinstance(parent_child[parent], NodeInfo):
                 pass
-#                 for child in self.parent_childs[parent].childs:
-#                     if isinstance(child, int):
-#                         l = []
-#                         edges[parent] = edges.get(parent, l).append(child)
             else:
                 raise ValueError("KeyValue in self.parent_child should be NodeInfo object, not " + str(type( parent_child[parent])))
            
-    def set_data(self):
+        
+    def set_data(self, user_change = True):
         """
         Set n_qubits and nmodes from parent_child info
         """
@@ -210,21 +207,27 @@ class BaseTree:
         self.nmodes = 0
         num_list = []
         renum_flag = False
-        for nodes in self.parent_child:
-            for child in self.parent_child[nodes].childs:
-                if isinstance(child,EnumInfo): 
-                    self.nmodes += 1
+        parent = 0
+        def down(parent):
+            nonlocal renum_flag
+            for child in self.parent_child[parent].childs: 
+                if isinstance(child,EnumInfo):
                     num_list.append(child.num)
-                if child is None:
+                    self.nmodes += 1 
+                elif child:
+                    down(child)
+                elif child is None:
                     renum_flag = True
                     self.nmodes += 1
-                        
+        down(parent)
         if self.nmodes % 2 == 1:
             raise ValueError("parent_child should contain only even number branches")
         self.nmodes = self.nmodes // 2
-        if renum_flag:
+        if renum_flag or not user_change:
+    
             self.enum_list = st_enumeration(self.nmodes)
         else:
+
             self.enum_list = num_list
             
     def check_height(self):
@@ -294,7 +297,7 @@ class BaseTree:
                 erase_from_parent(node)
                 erase(node)
         
-        parent_child = self.build_max_tree(height)
+        parent_child = self._build_max_tree(height)
         num_nodes = len(parent_child) - self.n_qubits
         L = self.min_height
         l = L
@@ -326,8 +329,8 @@ class BaseTree:
         self.parent_child = parent_child
         self.set_num_qubit_transform()
         self.renum_nodes()
-        
-    def build_max_tree(self, height = 0):
+    
+    def _build_max_tree(self, height = 0):
         """
         Build tree (parent_child) with all possible nodes and childs with height = self.min_height | height. Сonvenient for obtaining the necessary structures through nodes removal.
         """
@@ -348,6 +351,37 @@ class BaseTree:
             parent_child[parent] = NodeInfo(first_parent + (parent - first_parent ) // 3 - 3**(L-2))
         return parent_child
     
+    
+    @classmethod
+    def build_max_tree(cls, height = 1, num_false = None,edge_false = None):
+        """
+        Build tree with all possible nodes and childs with height = self.min_height | height. Сonvenient for obtaining the necessary structures through nodes removal.
+        """
+        parent_child = {} 
+        L = height
+        full_nodes = (3**L - 1) // 2
+        if num_false is None:
+            num_false = full_nodes - 1
+        if edge_false is None:
+            edge_false = 2
+        if num_false not in range(full_nodes - 3**(L-1), full_nodes) or edge_false not in [0,1,2]:
+            raise ValueError("num_false and edge_false should to be in [" + str(full_nodes - 3**(L-1)) + ",...," + str(full_nodes -1) + "] and [0,1,2] respectively")
+        n = 0
+        first_parent = 0
+        first_child = 1
+        for l in range(L - 1):
+            for parent in range(first_parent, first_parent + 3**l):
+                parent_child[parent] = NodeInfo(first_parent + (parent - first_parent ) // 3 - 3**(l-1))
+                for child in range(3):
+                    parent_child[parent][child] = first_child + child
+                first_child += 3    
+            first_parent = first_parent + 3**l
+        for parent in range(first_parent, first_parent + 3**(L-1)):
+            parent_child[parent] = NodeInfo(first_parent + (parent - first_parent ) // 3 - 3**(L-2))
+        parent_child[num_false][edge_false] = False
+        tt = cls(parent_child = parent_child)
+        return tt
+    
         
     def num_branches(self,enum_list = None):
         """
@@ -365,12 +399,12 @@ class BaseTree:
                 if child:
                     down(child, k +  [[parent, gate_name[index]]])
                 elif child != False:
-                    self.parent_child[parent][index] = EnumInfo(self.enum_list.index(i) + 1)
+                    self.parent_child[parent][index] = EnumInfo(self.enum_list[i] + 1)
                     i += 1
         down(0,k)
         return self
 
-    def delete_node(self,node):
+    def delete_node(self,node = 0 , nodes = None):
         """
         Remove nodes and its childs from parent child
         """
@@ -391,26 +425,29 @@ class BaseTree:
                 i = self.parent_child[parent].childs.index(child)
                 self.parent_child[parent].childs[i] = None
                 return parent, i
-        if node in self.parent_child:
-            parent, i = parent_ch_num(node)
-            erase(node)
-            if flag:
-                self.parent_child[parent].childs[i] = False
-                
+        if nodes is None:
+            nodes = [node]
+        for node in nodes:
+            if node in self.parent_child:
+                parent, i = parent_ch_num(node)
+                erase(node)
+                if flag:
+                    self.parent_child[parent].childs[i] = False
+            else:
+                raise ValueError("There is no node " + str(node) + " in tree")
         self.renum_nodes()
-        self.set_data()
+        self.set_data(user_change = False)
         self.check_height()
         self.num_branches()
         print(self)
     
     
-    def branches(self, get_num = False):
+    def branches(self):
         """
         Convert parent_child to list of branches. Used by pauli tables
         """
         k = []
         s = []
-        num_list = []
         def down(parent,k):
             nonlocal s
             for index, child in enumerate(self.parent_child[parent].childs):
@@ -418,12 +455,8 @@ class BaseTree:
                     down(child, k +  [[parent, gate_name[index]]])
                 elif child != False:
                     s.append(k + [[parent, gate_name[index]]])
-                    num_list.append(child.num)
         down(0,k)
-        if get_num:
-            return s, num_list
-        else:
-            return s    
+        return s    
     
     def __str__(self):
         k = []

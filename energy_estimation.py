@@ -1,4 +1,3 @@
-from qiskit_nature.units import DistanceUnit
 from qiskit_nature.second_q.drivers import PySCFDriver
 import Ternary_Tree as tt
 import numpy as np
@@ -61,6 +60,7 @@ def jwenergy(bond_length, at_name, nmodes =None, basis = "STO-3G"):
     calc = GroundStateEigensolver(converter, vqe_solver)
     inenergy = final_state.expectation_value(main_operator)
     return inenergy + es_problem.nuclear_repulsion_energy
+
 def ttenergy_opt4( bond_length = "1",at_name = "H",nmodes = 4, basis="STO-3G", active_orbitals = None, enum_list = None, only_hartree = True):
     if not active_orbitals:
         active_orbitals = [i for i in range(nmodes//2)]
@@ -104,7 +104,6 @@ def ttenergy_opt4( bond_length = "1",at_name = "H",nmodes = 4, basis="STO-3G", a
             sector_locator=es_problem.symmetry_sector_locator,
         )
     final_state = Statevector(qc)
-    
     
 #     SLSQP(maxiter= 300)
     if not only_hartree:

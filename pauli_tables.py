@@ -3,26 +3,21 @@ from qiskit.quantum_info.operators import Pauli
 from .BaseTree import st_enumeration
 from .TernaryTree import TernaryTree
 
-# num_list = []
-
-# for i in range(nmodes):
-#     num_list.append([2*i,2*i + 1])
 
 
-def _pauli_table_TT(nmodes,**kwargs):
-    #     Здесь может быть ошибка
-
+def _pauli_table_TT(**kwargs):
+    """
+    This function is used by InitstateTTInfo for vacuum preparation.
+    """
     tt =  kwargs.get("tt", None)
     if tt == None:
         tt = TernaryTree(nmodes)
-        tt.build_alpha_beta_tree()
-        n_qubits = nmodes
-    else:
-        n_qubits = tt.n_qubits
-        nmodes = tt.nmodes
-#         num_list = [[tt.enum_list[2*i],tt.enum_list[2*i + 1]] for i in range(nmodes)] x
-    branches, num_list = tt.branches(get_num = True)
 
+    n_qubits = tt.n_qubits
+    nmodes = tt.nmodes
+    branches = tt.branches()
+    num_list = tt.enum_list
+    print(num_list)
     def branch_to_str(branch):
         pauli_list = ["I"]*n_qubits
         pauli_str = ""
@@ -33,17 +28,16 @@ def _pauli_table_TT(nmodes,**kwargs):
         return pauli_str
     pauli_table_str = []
     for i in range(nmodes):
-        pauli_table_str.append( (branch_to_str(branches[num_list.index(2*i + 1)]) ,  branch_to_str(branches[num_list.index(2*i + 2)]) ))
-#     for i in range(nmodes + nmodes - 1, nmodes + nmodes//2 - 1, -1):
-#         pauli_table_str.append( (branch_to_str(branches[i]) , branch_to_str(branches[-i + nmodes*3]))) 
+        pauli_table_str.append( (branch_to_str(branches[num_list.index(2*i )]) ,  branch_to_str(branches[num_list.index(2*i + 1)]) ))
     return [pauli_table_str,[[1,-1j] for _ in range(len(pauli_table_str))]]
 
-def pauli_table_TT(nmodes,**kwargs):
+def pauli_table_TT(**kwargs):
+    """
+    This function is used by TernaryTreeMapper to obtain pauli_table
+    """
     pauli_table = []
-
-    pauli_table_str = _pauli_table_TT(nmodes, **kwargs)[0]
-
-    for i in range(nmodes):
+    pauli_table_str = _pauli_table_TT(**kwargs)[0]
+    for i in range(len(pauli_table_str)):
         pauli_table.append( (Pauli( pauli_table_str[i][0] ), Pauli( pauli_table_str[i][1])) )
     return pauli_table
 

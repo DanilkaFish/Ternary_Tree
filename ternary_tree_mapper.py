@@ -17,38 +17,37 @@ from qiskit_nature.second_q.operators import SparseLabelOp
 from .pauli_tables import pauli_table_TT
 
 class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docstring
-    
-    def __init__(self, es_problem,trans = None,enum_list = None, tt = 0):
-        """The Teranry Tree fermion-to-qubit mapping. Standart mapping is alpha_beta_tree"""
+    """The Ternary Tree fermion-to-qubit mapping. Standart tree structure is alpha_beta_tree"""
+    def __init__(
+        self, 
+        nmodes: int = 4, 
+        enum_list: list[int] = None, 
+        tt: TernaryTree = 0
+    ):
+        """
+        self.nmodes = int -- number of fermionic modes
+        self.enum_list = [int] -- branches numeration, possible renumeration
+        self.tt = TeranryTree -- Tree for  mapping construction
+        
+        For mapping definition TernaryTree object is enough, else standart tree for nmodes fermionic modes will be constructed
+        """
 #         print(type(tt),type(TernaryTree))
         if isinstance(tt,TernaryTree):
-        
             self.tt = tt
-            self.tt.num_branches()
-            self.nmodes = tt.nmodes
-            if trans:
-                self.trans = trans
-            else:
-                self.trans = [i for i in range(self.nmodes)]
-        self.num_alpha, self.num_beta = es_problem.num_particles
-        self.n_electrons = self.num_alpha + self.num_beta
-        
+        else:
+            self.tt = TernaryTree(nmodes)
+        if not enum_list is None:
+            self.tt.num_branches(enum_list)
+            
         super().__init__(allows_two_qubit_reduction=False)
 
-    @property
-    def tree_height(self):
-        return int(trunc(log(2*self.nmodes + 1)/log(3) - 0.001)) + 1
 
     def pauli_table(self, nmodes):
-        pt = copy.copy(pauli_table_TT(nmodes, tt = self.tt))
-        pauli_table = [None]*self.nmodes 
-        for i,t in enumerate(self.trans):
-            pauli_table[t] = pt[i]
-        
-        return pauli_table
+        pt = copy.copy(pauli_table_TT(tt = self.tt))
+        return pt
     
     @lru_cache(maxsize=32)
-    def sparse_pauli_operators(cls, nmodes: int) -> tuple[list[SparsePauliOp], list[SparsePauliOp]]:
+    def sparse_pauli_operators(self, nmodes: int) -> tuple[list[SparsePauliOp], list[SparsePauliOp]]:
         """Generates the cached :class:`.SparsePauliOp` terms.
 
         This uses :meth:`.QubitMapper.pauli_table` to construct a list of operators used to
@@ -64,7 +63,7 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
         times_creation_op = []
         times_annihilation_op = []
 
-        for paulis in cls.pauli_table(nmodes):
+        for paulis in self.pauli_table(nmodes):
             real_part = SparsePauliOp(paulis[0], coeffs=[0.5])
             imag_part = SparsePauliOp(paulis[1], coeffs=[0.5j])
 
@@ -80,7 +79,7 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
         return times_creation_op, times_annihilation_op, n_qubits
     
 #     @classmethod
-    def mode_based_mapping(cls, second_q_op: SparseLabelOp, nmodes: int) -> PauliSumOp:
+    def mode_based_mapping(self, second_q_op: SparseLabelOp, nmodes: int) -> PauliSumOp:
         """Utility method to map a `SparseLabelOp` to a `PauliSumOp` using a pauli table.
 
         Args:
@@ -95,7 +94,7 @@ class TernaryTreeMapper(FermionicMapper):  # pylint: disable=missing-class-docst
                 of operator modes, or if the operator has unexpected label content
         """
 #         print("nmodes = ", nmodes)
-        times_creation_op, times_annihilation_op, n_qubits = cls.sparse_pauli_operators(nmodes)
+        times_creation_op, times_annihilation_op, n_qubits = self.sparse_pauli_operators(nmodes)
 #         print("times_creation_op = ", times_creation_op, "\n", times_annihilation_op)
         # make sure ret_op_list is not empty by including a zero op
         # Here are differencies
