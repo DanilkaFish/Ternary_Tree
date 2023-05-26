@@ -10,5 +10,5 @@ Qiskit based module for implementation Ternary Tree fermion-to-qubit mapping. Co
 
   -- pyscf
   
-## TernaryTree creation and manipulation
+## Code examples for ternary tree implementation can be found in TernaryTreeExamples.ipynb
 
